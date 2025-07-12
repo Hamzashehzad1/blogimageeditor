@@ -164,16 +164,23 @@ def suggest_images(post_id, heading_index):
                 'heading_content': heading['content']
             }
         
-        # Generate search query using Gemini
-        gemini_client = GeminiClient()
-        search_query = gemini_client.generate_image_search_query(
-            search_query_context['title'], 
-            search_query_context['heading_text'], 
-            search_query_context['heading_content']
-        )
+        # Check for manual query parameter
+        manual_query = request.args.get('manual_query')
         
-        if not search_query:
-            return jsonify({'error': 'Failed to generate search query'}), 500
+        if manual_query:
+            # Use manual query if provided
+            search_query = manual_query.strip()
+        else:
+            # Generate search query using Gemini
+            gemini_client = GeminiClient()
+            search_query = gemini_client.generate_image_search_query(
+                search_query_context['title'], 
+                search_query_context['heading_text'], 
+                search_query_context['heading_content']
+            )
+            
+            if not search_query:
+                return jsonify({'error': 'Failed to generate search query'}), 500
         
         # Get page parameter for pagination
         page = int(request.args.get('page', 1))

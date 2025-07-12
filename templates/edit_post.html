@@ -121,8 +121,30 @@
             </div>
             <div class="modal-body">
                 <div id="searchInfo" class="alert alert-info" style="display: none;">
-                    <i class="fas fa-search me-2"></i>
-                    <strong>AI Search Query:</strong> <span id="searchQuery"></span>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <i class="fas fa-search me-2"></i>
+                            <strong>Search Query:</strong>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary" onclick="toggleSearchEdit()" id="editSearchBtn">
+                            <i class="fas fa-edit me-1"></i>Edit
+                        </button>
+                    </div>
+                    <div id="searchQueryDisplay">
+                        <span id="searchQuery"></span>
+                    </div>
+                    <div id="searchQueryEdit" style="display: none;">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="searchQueryInput" placeholder="Enter search query (4-7 words)" onkeypress="handleSearchKeyPress(event)">
+                            <button class="btn btn-success" onclick="updateSearchQuery()">
+                                <i class="fas fa-search me-1"></i>Search
+                            </button>
+                            <button class="btn btn-outline-secondary" onclick="cancelSearchEdit()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <small class="text-muted mt-1 d-block">Enter 4-7 words that describe the image you're looking for</small>
+                    </div>
                 </div>
                 
                 <div id="loadingImages" class="text-center py-4" style="display: none;">
@@ -492,6 +514,107 @@ function deleteFeaturedImage() {
         window.featuredImageId = null;
         
         showNotification('Featured image removed successfully', 'success');
+    }
+}
+
+// Toggle search query editing
+function toggleSearchEdit() {
+    const displayDiv = document.getElementById('searchQueryDisplay');
+    const editDiv = document.getElementById('searchQueryEdit');
+    const editBtn = document.getElementById('editSearchBtn');
+    const input = document.getElementById('searchQueryInput');
+    
+    if (editDiv.style.display === 'none') {
+        // Switch to edit mode
+        displayDiv.style.display = 'none';
+        editDiv.style.display = 'block';
+        editBtn.innerHTML = '<i class="fas fa-times me-1"></i>Cancel';
+        input.value = currentSearchQuery;
+        input.focus();
+    } else {
+        // Switch to display mode
+        cancelSearchEdit();
+    }
+}
+
+// Cancel search query editing
+function cancelSearchEdit() {
+    const displayDiv = document.getElementById('searchQueryDisplay');
+    const editDiv = document.getElementById('searchQueryEdit');
+    const editBtn = document.getElementById('editSearchBtn');
+    
+    displayDiv.style.display = 'block';
+    editDiv.style.display = 'none';
+    editBtn.innerHTML = '<i class="fas fa-edit me-1"></i>Edit';
+}
+
+// Update search query with manual input
+async function updateSearchQuery() {
+    const input = document.getElementById('searchQueryInput');
+    const newQuery = input.value.trim();
+    
+    if (!newQuery) {
+        showNotification('Please enter a search query', 'error');
+        return;
+    }
+    
+    if (newQuery.split(' ').length > 7) {
+        showNotification('Please keep the search query to 7 words or less', 'error');
+        return;
+    }
+    
+    try {
+        // Update the display
+        currentSearchQuery = newQuery;
+        document.getElementById('searchQuery').textContent = newQuery;
+        cancelSearchEdit();
+        
+        // Reset pagination and search
+        currentPage = 1;
+        hasMoreImages = false;
+        
+        // Show loading
+        document.getElementById('loadingImages').style.display = 'block';
+        document.getElementById('imageGrid').innerHTML = '';
+        document.getElementById('noImages').style.display = 'none';
+        
+        // Search with new query
+        const searchUrl = currentHeadingIndex === -1 
+            ? `/api/suggest-images/${postData.id}/featured?manual_query=${encodeURIComponent(newQuery)}`
+            : `/api/suggest-images/${postData.id}/${currentHeadingIndex}?manual_query=${encodeURIComponent(newQuery)}`;
+            
+        const response = await fetch(searchUrl);
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to search images');
+        }
+        
+        // Hide loading
+        document.getElementById('loadingImages').style.display = 'none';
+        
+        // Update search data
+        currentPage = data.current_page || 1;
+        hasMoreImages = data.has_more || false;
+        
+        if (data.images && data.images.length > 0) {
+            displayImages(data.images, false);
+        } else {
+            document.getElementById('noImages').style.display = 'block';
+        }
+        
+    } catch (error) {
+        console.error('Error searching with manual query:', error);
+        document.getElementById('loadingImages').style.display = 'none';
+        showNotification('Error searching images: ' + error.message, 'error');
+    }
+}
+
+// Handle Enter key press in search input
+function handleSearchKeyPress(event) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        updateSearchQuery();
     }
 }
 
