@@ -10,7 +10,7 @@ This is a Flask-based web application that connects to WordPress sites via the R
 - **API Credentials**: User provided their own API keys for Gemini and Pexels
 - **WordPress Connection**: Uses application password authentication
 - **Image Processing**: Compress to WebP under 100KB, horizontal orientation preferred
-- **AI Search Queries**: Use specific 4-7 word prompts for better Pexels image matching
+- **AI Search Queries**: Use specific 4-7 word prompts for H2/H3 sections for better Pexels image matching
 
 ## System Architecture
 

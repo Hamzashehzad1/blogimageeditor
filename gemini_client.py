@@ -16,11 +16,11 @@ class GeminiClient:
             prompt = f"""You are helping me find an image for a blog post section.
 Here is the blog post section:
 
-Title: {heading_text}
+H2/H3 Title: {heading_text}
 Paragraph: {heading_content[:500]}
 
 Your task:
-1. Understand the visual context of this section.
+1. Understand the visual context of this H2 or H3 section.
 2. Return ONLY a short and specific Pexels search query (4–7 words max) that will show images highly relevant to this title and paragraph.
 
 Make sure your query is suitable for a visual search engine like Pexels."""
