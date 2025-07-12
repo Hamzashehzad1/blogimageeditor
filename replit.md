@@ -10,6 +10,7 @@ This is a Flask-based web application that connects to WordPress sites via the R
 - **API Credentials**: User provided their own API keys for Gemini and Pexels
 - **WordPress Connection**: Uses application password authentication
 - **Image Processing**: Compress to WebP under 100KB, horizontal orientation preferred
+- **AI Search Queries**: Use specific 4-7 word prompts for better Pexels image matching
 
 ## System Architecture
 
@@ -44,9 +45,9 @@ This is a Flask-based web application that connects to WordPress sites via the R
 - Implements proper error handling and timeout management
 
 ### AI-Powered Image Search
-- **Gemini Client** (`gemini_client.py`): Generates contextual search queries based on blog content
-- **Pexels Client** (`pexels_client.py`): Searches for relevant stock photos using AI-generated queries
-- **Image Processor** (`image_processor.py`): Downloads, compresses, and converts images to WebP format
+- **Gemini Client** (`gemini_client.py`): Generates targeted 4-7 word search queries using section title and paragraph content
+- **Pexels Client** (`pexels_client.py`): Searches for relevant stock photos with pagination support
+- **Image Processor** (`image_processor.py`): Downloads, compresses, and converts images to WebP format under 100KB
 
 ### Route Handlers (`routes.py`)
 - WordPress connection management with credential validation

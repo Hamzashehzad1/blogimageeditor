@@ -13,29 +13,17 @@ class GeminiClient:
     def generate_image_search_query(self, blog_title, heading_text, heading_content):
         """Generate search query for Pexels based on blog context"""
         try:
-            prompt = f"""
-            You are an expert at creating search queries for stock photo websites. Analyze the blog context and create the most relevant search query.
+            prompt = f"""You are helping me find an image for a blog post section.
+Here is the blog post section:
 
-            BLOG CONTEXT:
-            - Blog Title: "{blog_title}"
-            - Section Heading: "{heading_text}"
-            - Section Content: "{heading_content[:300]}..."
+Title: {heading_text}
+Paragraph: {heading_content[:500]}
 
-            ANALYSIS STEPS:
-            1. First understand the main theme of the blog title
-            2. Then analyze what this specific heading is about within that theme
-            3. Consider what visual elements would best represent this section
-            4. Think about what emotions or concepts should be conveyed
+Your task:
+1. Understand the visual context of this section.
+2. Return ONLY a short and specific Pexels search query (4–7 words max) that will show images highly relevant to this title and paragraph.
 
-            SEARCH QUERY REQUIREMENTS:
-            - Create 2-4 highly relevant keywords
-            - Focus on visual concepts that photographers would capture
-            - Avoid brand names, technical jargon, or abstract concepts
-            - Ensure the query returns professional, horizontal stock photos
-            - Make it specific enough to be relevant but broad enough to get results
-
-            Return ONLY the search query, no explanation or quotes.
-            """
+Make sure your query is suitable for a visual search engine like Pexels."""
             
             response = self.client.models.generate_content(
                 model="gemini-2.5-flash",
