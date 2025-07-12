@@ -1,0 +1,472 @@
+{% extends "base.html" %}
+
+{% block title %}Edit: {{ post.title }} - WordPress AI Editor{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Post Content -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4 class="card-title mb-0">
+                    <i class="fas fa-edit me-2"></i>{{ post.title }}
+                </h4>
+                <div>
+                    <button id="savePostBtn" class="btn btn-success">
+                        <i class="fas fa-save me-2"></i>Save as Draft
+                    </button>
+                    <a href="{{ url_for('posts') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Back to Posts
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Featured Image Section -->
+                <div class="mb-4">
+                    <h5><i class="fas fa-image me-2"></i>Featured Image</h5>
+                    <div id="featuredImageContainer" class="border rounded p-3 bg-light">
+                        {% if post.featured_media %}
+                            <img src="#" alt="Featured Image" class="img-fluid rounded mb-2" id="featuredImage">
+                        {% else %}
+                            <div class="text-center text-muted py-4">
+                                <i class="fas fa-image fa-3x mb-3"></i>
+                                <p>No featured image set</p>
+                                <button class="btn btn-primary" onclick="suggestFeaturedImage()">
+                                    <i class="fas fa-plus me-2"></i>Add Featured Image
+                                </button>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Post Content with Image Insertion Points -->
+                <div id="postContent">
+                    {{ post.content|safe }}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Headings Navigation -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-list me-2"></i>Headings & Images
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if headings %}
+                    <div class="list-group list-group-flush">
+                        {% for heading in headings %}
+                            <div class="list-group-item d-flex justify-content-between align-items-start p-2">
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1">{{ heading.text }}</h6>
+                                    <small class="text-muted">{{ heading.type.upper() }}</small>
+                                </div>
+                                <button class="btn btn-sm btn-outline-primary" 
+                                        onclick="suggestImages({{ loop.index0 }}, '{{ heading.text }}')">
+                                    <i class="fas fa-magic me-1"></i>Add Image
+                                </button>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center text-muted py-3">
+                        <i class="fas fa-heading fa-2x mb-2"></i>
+                        <p>No H2 or H3 headings found in this post.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Post Info -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-info-circle me-2"></i>Post Information
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-2">
+                    <strong>Status:</strong> 
+                    <span class="badge bg-{{ 'success' if post.status == 'publish' else 'secondary' }}">
+                        {{ post.status.title() }}
+                    </span>
+                </div>
+                <div class="mb-2">
+                    <strong>ID:</strong> {{ post.id }}
+                </div>
+                <div class="mb-2">
+                    <strong>Date:</strong> {{ post.date[:16] }}
+                </div>
+                <div>
+                    <strong>Modified:</strong> {{ post.modified[:16] }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Image Selection Modal -->
+<div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-images me-2"></i>Select Image
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="searchInfo" class="alert alert-info" style="display: none;">
+                    <i class="fas fa-search me-2"></i>
+                    <strong>AI Search Query:</strong> <span id="searchQuery"></span>
+                </div>
+                
+                <div id="loadingImages" class="text-center py-4" style="display: none;">
+                    <div class="spinner-border text-primary me-2"></div>
+                    <span>Generating AI search query and finding images...</span>
+                </div>
+                
+                <div id="imageGrid" class="row"></div>
+                
+                <div id="noImages" class="text-center py-4" style="display: none;">
+                    <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
+                    <h5>No Images Found</h5>
+                    <p class="text-muted">No suitable images were found for this heading. Please try editing the heading or manually select an image.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Processing Modal -->
+<div class="modal fade" id="processingModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-body text-center py-4">
+                <div class="spinner-border text-primary mb-3"></div>
+                <h5>Processing Image</h5>
+                <p class="text-muted mb-0">Compressing and optimizing...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Global variables
+let currentHeadingIndex = -1;
+let postData = {{ post|tojson }};
+let headingsData = {{ headings|tojson }};
+
+// Suggest images for a heading
+async function suggestImages(headingIndex, headingText) {
+    currentHeadingIndex = headingIndex;
+    
+    // Show modal and loading state
+    const modal = new bootstrap.Modal(document.getElementById('imageModal'));
+    modal.show();
+    
+    document.getElementById('loadingImages').style.display = 'block';
+    document.getElementById('imageGrid').innerHTML = '';
+    document.getElementById('searchInfo').style.display = 'none';
+    document.getElementById('noImages').style.display = 'none';
+    
+    try {
+        const response = await fetch(`/api/suggest-images/${postData.id}/${headingIndex}`);
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to get image suggestions');
+        }
+        
+        // Hide loading
+        document.getElementById('loadingImages').style.display = 'none';
+        
+        // Show search query
+        document.getElementById('searchQuery').textContent = data.search_query;
+        document.getElementById('searchInfo').style.display = 'block';
+        
+        if (data.images && data.images.length > 0) {
+            displayImages(data.images);
+        } else {
+            document.getElementById('noImages').style.display = 'block';
+        }
+        
+    } catch (error) {
+        console.error('Error getting image suggestions:', error);
+        document.getElementById('loadingImages').style.display = 'none';
+        document.getElementById('noImages').style.display = 'block';
+        
+        // Show error in the modal
+        document.getElementById('imageGrid').innerHTML = `
+            <div class="col-12">
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Error: ${error.message}
+                </div>
+            </div>
+        `;
+    }
+}
+
+// Display images in grid
+function displayImages(images) {
+    const grid = document.getElementById('imageGrid');
+    grid.innerHTML = '';
+    
+    images.forEach((image, index) => {
+        const col = document.createElement('div');
+        col.className = 'col-md-6 col-lg-4 mb-3';
+        
+        col.innerHTML = `
+            <div class="card h-100 image-card" style="cursor: pointer;" onclick="selectImage('${image.url}', '${image.photographer}', '${image.alt}')">
+                <img src="${image.medium_url}" class="card-img-top" alt="${image.alt}" style="height: 150px; object-fit: cover;">
+                <div class="card-body p-2">
+                    <small class="text-muted">
+                        <i class="fas fa-camera me-1"></i>
+                        By ${image.photographer}
+                    </small>
+                    <br>
+                    <small class="text-muted">
+                        ${image.width} × ${image.height}
+                    </small>
+                </div>
+            </div>
+        `;
+        
+        grid.appendChild(col);
+    });
+}
+
+// Select and process image
+async function selectImage(imageUrl, author, altText) {
+    // Close image modal and show processing modal
+    bootstrap.Modal.getInstance(document.getElementById('imageModal')).hide();
+    
+    const processingModal = new bootstrap.Modal(document.getElementById('processingModal'));
+    processingModal.show();
+    
+    try {
+        const response = await fetch('/api/process-image', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                image_url: imageUrl,
+                author: author,
+                alt_text: altText
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to process image');
+        }
+        
+        // Insert image into content
+        insertImageIntoContent(data.processed_url, data.attribution, altText);
+        
+        // Hide processing modal
+        processingModal.hide();
+        
+        // Show success message
+        showNotification('Image added successfully!', 'success');
+        
+    } catch (error) {
+        console.error('Error processing image:', error);
+        processingModal.hide();
+        showNotification('Error processing image: ' + error.message, 'error');
+    }
+}
+
+// Insert image into post content
+function insertImageIntoContent(imageUrl, attribution, altText) {
+    if (currentHeadingIndex === -1) {
+        // Featured image
+        const featuredContainer = document.getElementById('featuredImageContainer');
+        featuredContainer.innerHTML = `
+            <div class="text-center">
+                <img src="${imageUrl}" alt="${altText}" class="img-fluid rounded mb-2" style="max-height: 300px;">
+                <div class="text-muted small">${attribution}</div>
+                <button class="btn btn-sm btn-outline-secondary mt-2" onclick="suggestFeaturedImage()">
+                    <i class="fas fa-sync me-1"></i>Change Image
+                </button>
+            </div>
+        `;
+    } else {
+        // Regular heading image
+        const heading = headingsData[currentHeadingIndex];
+        const postContentDiv = document.getElementById('postContent');
+        
+        // Create image HTML
+        const imageHtml = `
+            <div class="my-4">
+                <img src="${imageUrl}" alt="${altText}" class="img-fluid rounded">
+                <div class="text-muted small mt-1">${attribution}</div>
+            </div>
+        `;
+        
+        // Find the heading in the DOM and insert image after it
+        const headings = postContentDiv.querySelectorAll('h2, h3');
+        let targetHeading = null;
+        
+        for (let h of headings) {
+            if (h.textContent.trim() === heading.text) {
+                targetHeading = h;
+                break;
+            }
+        }
+        
+        if (targetHeading) {
+            // Insert after the heading
+            targetHeading.insertAdjacentHTML('afterend', imageHtml);
+        }
+    }
+}
+
+// Save post
+async function savePost() {
+    const saveBtn = document.getElementById('savePostBtn');
+    const originalText = saveBtn.innerHTML;
+    
+    // Show loading state
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Saving...';
+    
+    try {
+        const content = document.getElementById('postContent').innerHTML;
+        
+        const response = await fetch('/api/save-post', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                post_id: postData.id,
+                content: content
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to save post');
+        }
+        
+        showNotification('Post saved successfully!', 'success');
+        
+    } catch (error) {
+        console.error('Error saving post:', error);
+        showNotification('Error saving post: ' + error.message, 'error');
+    } finally {
+        // Restore button
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = originalText;
+    }
+}
+
+// Show notification
+function showNotification(message, type) {
+    const alertClass = type === 'error' ? 'alert-danger' : 'alert-success';
+    const icon = type === 'error' ? 'fas fa-exclamation-triangle' : 'fas fa-check-circle';
+    
+    const notification = document.createElement('div');
+    notification.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    
+    notification.innerHTML = `
+        <i class="${icon} me-2"></i>${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 5000);
+}
+
+// Featured image selection
+async function suggestFeaturedImage() {
+    // Use the blog title for featured image search
+    currentHeadingIndex = -1; // Special flag for featured image
+    
+    // Show modal and loading state
+    const modal = new bootstrap.Modal(document.getElementById('imageModal'));
+    modal.show();
+    
+    document.getElementById('loadingImages').style.display = 'block';
+    document.getElementById('imageGrid').innerHTML = '';
+    document.getElementById('searchInfo').style.display = 'none';
+    document.getElementById('noImages').style.display = 'none';
+    
+    try {
+        // Generate search query based on blog title
+        const searchQuery = postData.title.toLowerCase();
+        
+        // Search for images on Pexels directly with the title
+        const response = await fetch(`/api/suggest-images/${postData.id}/featured`);
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to get image suggestions');
+        }
+        
+        // Hide loading
+        document.getElementById('loadingImages').style.display = 'none';
+        
+        // Show search query
+        document.getElementById('searchQuery').textContent = data.search_query;
+        document.getElementById('searchInfo').style.display = 'block';
+        
+        if (data.images && data.images.length > 0) {
+            displayImages(data.images);
+        } else {
+            document.getElementById('noImages').style.display = 'block';
+        }
+        
+    } catch (error) {
+        console.error('Error getting featured image suggestions:', error);
+        document.getElementById('loadingImages').style.display = 'none';
+        document.getElementById('noImages').style.display = 'block';
+        
+        // Show error in the modal
+        document.getElementById('imageGrid').innerHTML = `
+            <div class="col-12">
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Error: ${error.message}
+                </div>
+            </div>
+        `;
+    }
+}
+
+// Event listeners
+document.getElementById('savePostBtn').addEventListener('click', savePost);
+
+// Add hover effects to image cards
+document.addEventListener('DOMContentLoaded', function() {
+    // Add CSS for image card hover effect
+    const style = document.createElement('style');
+    style.textContent = `
+        .image-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transition: all 0.2s ease;
+        }
+    `;
+    document.head.appendChild(style);
+});
+</script>
+{% endblock %}

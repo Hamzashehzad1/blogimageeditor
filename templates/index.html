@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Connect to WordPress - WordPress AI Editor{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="card-title mb-0">
+                    <i class="fas fa-wordpress me-2"></i>Connect to WordPress
+                </h4>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-4">
+                    Enter your WordPress site details to start editing your blog posts with AI-powered image suggestions.
+                </p>
+                
+                <form method="POST" action="{{ url_for('connect_wordpress') }}">
+                    <div class="mb-3">
+                        <label for="site_url" class="form-label">WordPress Site URL</label>
+                        <input type="url" class="form-control" id="site_url" name="site_url" 
+                               placeholder="https://yoursite.com" required>
+                        <div class="form-text">
+                            Enter the full URL of your WordPress site (e.g., https://example.com)
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="username" name="username" 
+                               placeholder="Your WordPress username" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="app_password" class="form-label">Application Password</label>
+                        <input type="password" class="form-control" id="app_password" name="app_password" 
+                               placeholder="xxxx xxxx xxxx xxxx xxxx xxxx" required>
+                        <div class="form-text">
+                            <small>
+                                <i class="fas fa-info-circle me-1"></i>
+                                You need to generate an Application Password in your WordPress admin under 
+                                <strong>Users → Profile → Application Passwords</strong>
+                            </small>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-plug me-2"></i>Connect to WordPress
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Help Section -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-question-circle me-2"></i>Need Help?
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-key me-1"></i>Application Password</h6>
+                        <p class="small text-muted">
+                            Go to your WordPress admin → Users → Your Profile → 
+                            Application Passwords section to generate a new password.
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-shield-alt me-1"></i>REST API</h6>
+                        <p class="small text-muted">
+                            Make sure your WordPress site has the REST API enabled 
+                            (it's enabled by default in most installations).
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
