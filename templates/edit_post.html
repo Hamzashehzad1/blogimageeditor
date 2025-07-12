@@ -162,10 +162,17 @@
 let currentHeadingIndex = -1;
 let postData = {{ post|tojson }};
 let headingsData = {{ headings|tojson }};
+let currentSearchQuery = '';
+let currentPage = 1;
+let hasMoreImages = false;
 
 // Suggest images for a heading
 async function suggestImages(headingIndex, headingText) {
     currentHeadingIndex = headingIndex;
+    
+    // Reset pagination
+    currentPage = 1;
+    hasMoreImages = false;
     
     // Show modal and loading state
     const modal = new bootstrap.Modal(document.getElementById('imageModal'));
@@ -187,12 +194,17 @@ async function suggestImages(headingIndex, headingText) {
         // Hide loading
         document.getElementById('loadingImages').style.display = 'none';
         
+        // Store search data
+        currentSearchQuery = data.search_query;
+        currentPage = data.current_page || 1;
+        hasMoreImages = data.has_more || false;
+        
         // Show search query
         document.getElementById('searchQuery').textContent = data.search_query;
         document.getElementById('searchInfo').style.display = 'block';
         
         if (data.images && data.images.length > 0) {
-            displayImages(data.images);
+            displayImages(data.images, false); // false = don't append, replace
         } else {
             document.getElementById('noImages').style.display = 'block';
         }
@@ -215,9 +227,12 @@ async function suggestImages(headingIndex, headingText) {
 }
 
 // Display images in grid
-function displayImages(images) {
+function displayImages(images, append = false) {
     const grid = document.getElementById('imageGrid');
-    grid.innerHTML = '';
+    
+    if (!append) {
+        grid.innerHTML = '';
+    }
     
     images.forEach((image, index) => {
         const col = document.createElement('div');
@@ -241,6 +256,45 @@ function displayImages(images) {
         
         grid.appendChild(col);
     });
+    
+    // Add "Load More" button if there are more images
+    if (hasMoreImages && !append) {
+        const loadMoreCol = document.createElement('div');
+        loadMoreCol.className = 'col-12 text-center mt-3';
+        loadMoreCol.innerHTML = `
+            <button class="btn btn-outline-primary" onclick="loadMoreImages()">
+                <i class="fas fa-plus-circle me-2"></i>Load More Images
+            </button>
+        `;
+        grid.appendChild(loadMoreCol);
+    }
+}
+
+// Load more images function
+async function loadMoreImages() {
+    try {
+        currentPage++;
+        const response = await fetch(`/api/suggest-images/${postData.id}/${currentHeadingIndex}?page=${currentPage}`);
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to load more images');
+        }
+        
+        if (data.images && data.images.length > 0) {
+            hasMoreImages = data.has_more || false;
+            // Remove existing "Load More" button
+            const existingLoadMore = document.querySelector('.col-12.text-center.mt-3');
+            if (existingLoadMore) {
+                existingLoadMore.remove();
+            }
+            displayImages(data.images, true); // true = append to existing
+        }
+        
+    } catch (error) {
+        console.error('Error loading more images:', error);
+        showNotification('Error loading more images: ' + error.message, 'error');
+    }
 }
 
 // Select and process image
@@ -271,7 +325,7 @@ async function selectImage(imageUrl, author, altText) {
         }
         
         // Insert image into content
-        insertImageIntoContent(data.processed_url, data.attribution, altText);
+        insertImageIntoContent(data.processed_url, data.attribution, altText, data.media_id);
         
         // Hide processing modal
         processingModal.hide();
@@ -287,9 +341,10 @@ async function selectImage(imageUrl, author, altText) {
 }
 
 // Insert image into post content
-function insertImageIntoContent(imageUrl, attribution, altText) {
+function insertImageIntoContent(imageUrl, attribution, altText, mediaId) {
     if (currentHeadingIndex === -1) {
-        // Featured image
+        // Featured image - store media ID for when saving post
+        window.featuredImageId = mediaId;
         const featuredContainer = document.getElementById('featuredImageContainer');
         featuredContainer.innerHTML = `
             <div class="text-center">
@@ -305,12 +360,12 @@ function insertImageIntoContent(imageUrl, attribution, altText) {
         const heading = headingsData[currentHeadingIndex];
         const postContentDiv = document.getElementById('postContent');
         
-        // Create image HTML
+        // Create image HTML with proper WordPress structure
         const imageHtml = `
-            <div class="my-4">
-                <img src="${imageUrl}" alt="${altText}" class="img-fluid rounded">
-                <div class="text-muted small mt-1">${attribution}</div>
-            </div>
+            <figure class="wp-block-image size-full my-4">
+                <img src="${imageUrl}" alt="${altText}" class="img-fluid rounded wp-image-${mediaId}">
+                <figcaption class="text-muted small mt-1">${attribution}</figcaption>
+            </figure>
         `;
         
         // Find the heading in the DOM and insert image after it
@@ -350,7 +405,8 @@ async function savePost() {
             },
             body: JSON.stringify({
                 post_id: postData.id,
-                content: content
+                content: content,
+                featured_image_id: window.featuredImageId || null
             })
         });
         
@@ -401,6 +457,10 @@ async function suggestFeaturedImage() {
     // Use the blog title for featured image search
     currentHeadingIndex = -1; // Special flag for featured image
     
+    // Reset pagination
+    currentPage = 1;
+    hasMoreImages = false;
+    
     // Show modal and loading state
     const modal = new bootstrap.Modal(document.getElementById('imageModal'));
     modal.show();
@@ -411,10 +471,7 @@ async function suggestFeaturedImage() {
     document.getElementById('noImages').style.display = 'none';
     
     try {
-        // Generate search query based on blog title
-        const searchQuery = postData.title.toLowerCase();
-        
-        // Search for images on Pexels directly with the title
+        // Search for images on Pexels for featured image
         const response = await fetch(`/api/suggest-images/${postData.id}/featured`);
         const data = await response.json();
         
@@ -425,12 +482,17 @@ async function suggestFeaturedImage() {
         // Hide loading
         document.getElementById('loadingImages').style.display = 'none';
         
+        // Store search data
+        currentSearchQuery = data.search_query;
+        currentPage = data.current_page || 1;
+        hasMoreImages = data.has_more || false;
+        
         // Show search query
         document.getElementById('searchQuery').textContent = data.search_query;
         document.getElementById('searchInfo').style.display = 'block';
         
         if (data.images && data.images.length > 0) {
-            displayImages(data.images);
+            displayImages(data.images, false);
         } else {
             document.getElementById('noImages').style.display = 'block';
         }

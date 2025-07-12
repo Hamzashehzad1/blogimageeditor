@@ -68,6 +68,8 @@ class ImageProcessor:
             
             return {
                 'url': relative_path,
+                'file_path': filepath,
+                'filename': filename,
                 'file_size': file_size,
                 'author': author,
                 'alt_text': alt_text

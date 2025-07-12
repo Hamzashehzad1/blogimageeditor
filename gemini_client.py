@@ -14,20 +14,27 @@ class GeminiClient:
         """Generate search query for Pexels based on blog context"""
         try:
             prompt = f"""
-            Based on the following blog post information, generate a concise and effective search query for finding relevant stock photos on Pexels:
+            You are an expert at creating search queries for stock photo websites. Analyze the blog context and create the most relevant search query.
 
-            Blog Title: {blog_title}
-            Section Heading: {heading_text}
-            Section Content (first 500 chars): {heading_content}
+            BLOG CONTEXT:
+            - Blog Title: "{blog_title}"
+            - Section Heading: "{heading_text}"
+            - Section Content: "{heading_content[:300]}..."
 
-            Requirements:
-            - Create a search query that captures the essence of this section
-            - Focus on visual concepts, objects, or scenes that would complement the content
-            - Keep it to 2-4 keywords maximum
-            - Prefer general concepts over specific brand names or technical terms
-            - Ensure the query would return horizontal/landscape images suitable for web articles
+            ANALYSIS STEPS:
+            1. First understand the main theme of the blog title
+            2. Then analyze what this specific heading is about within that theme
+            3. Consider what visual elements would best represent this section
+            4. Think about what emotions or concepts should be conveyed
 
-            Return only the search query, nothing else.
+            SEARCH QUERY REQUIREMENTS:
+            - Create 2-4 highly relevant keywords
+            - Focus on visual concepts that photographers would capture
+            - Avoid brand names, technical jargon, or abstract concepts
+            - Ensure the query returns professional, horizontal stock photos
+            - Make it specific enough to be relevant but broad enough to get results
+
+            Return ONLY the search query, no explanation or quotes.
             """
             
             response = self.client.models.generate_content(

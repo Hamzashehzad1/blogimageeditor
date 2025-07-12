@@ -175,16 +175,22 @@ def suggest_images(post_id, heading_index):
         if not search_query:
             return jsonify({'error': 'Failed to generate search query'}), 500
         
+        # Get page parameter for pagination
+        page = int(request.args.get('page', 1))
+        per_page = 20
+        
         # Search for images on Pexels
         pexels_client = PexelsClient()
-        images = pexels_client.search_images(search_query, per_page=20, orientation='landscape')
+        images = pexels_client.search_images(search_query, per_page=per_page, page=page, orientation='landscape')
         
         if not images:
             return jsonify({'error': 'No images found'}), 404
         
         return jsonify({
             'search_query': search_query,
-            'images': images
+            'images': images,
+            'current_page': page,
+            'has_more': len(images) == per_page  # If we got full page, there might be more
         })
         
     except Exception as e:
@@ -193,8 +199,12 @@ def suggest_images(post_id, heading_index):
 
 @app.route('/api/process-image', methods=['POST'])
 def process_image():
-    """Process and upload selected image"""
+    """Process and upload selected image to WordPress"""
     try:
+        wp_connection_id = session.get('wp_connection_id')
+        if not wp_connection_id:
+            return jsonify({'error': 'Not connected to WordPress'}), 401
+        
         data = request.get_json()
         image_url = data.get('image_url')
         author = data.get('author')
@@ -203,6 +213,9 @@ def process_image():
         if not image_url:
             return jsonify({'error': 'Image URL is required'}), 400
         
+        wp_conn = WordPressConnection.query.get_or_404(wp_connection_id)
+        wp_client = WordPressClient(wp_conn.site_url, wp_conn.username, wp_conn.app_password)
+        
         # Process image (download, compress, convert to WebP)
         image_processor = ImageProcessor()
         processed_image = image_processor.process_image(image_url, author, alt_text)
@@ -210,10 +223,16 @@ def process_image():
         if not processed_image:
             return jsonify({'error': 'Failed to process image'}), 500
         
+        # Upload to WordPress media library
+        media_response = wp_client.upload_media(processed_image['file_path'], processed_image['filename'])
+        
+        if not media_response:
+            return jsonify({'error': 'Failed to upload image to WordPress'}), 500
+        
         # Save to database
         processed_img = ProcessedImage(
             original_url=image_url,
-            processed_url=processed_image['url'],
+            processed_url=media_response['url'],
             author=author,
             alt_text=alt_text,
             file_size=processed_image['file_size']
@@ -222,9 +241,10 @@ def process_image():
         db.session.commit()
         
         return jsonify({
-            'processed_url': processed_image['url'],
+            'processed_url': media_response['url'],
+            'media_id': media_response['id'],
             'file_size': processed_image['file_size'],
-            'attribution': f"Photo by {author} from Pexels"
+            'attribution': f"Image by {author} from Pexels"
         })
         
     except Exception as e:

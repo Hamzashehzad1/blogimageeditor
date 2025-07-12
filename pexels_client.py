@@ -12,12 +12,13 @@ class PexelsClient:
             'Authorization': self.api_key
         }
     
-    def search_images(self, query, per_page=20, orientation='landscape'):
+    def search_images(self, query, per_page=20, page=1, orientation='landscape'):
         """Search for images on Pexels"""
         try:
             params = {
                 'query': query,
                 'per_page': per_page,
+                'page': page,
                 'orientation': orientation,
                 'size': 'medium'
             }
